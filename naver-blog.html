@@ -14,7 +14,7 @@
     }
 
     .naver-blog-latest {
-      max-width: 1200px;   /* PC에서 가로 5개가 들어가도록 너비 조금 넓힘 */
+      max-width: 1200px;   /* PC에서 가로 5개 들어가도록 너비 */
       margin: 0 auto;
       padding: 16px;
     }
@@ -40,29 +40,39 @@
       margin: 0;
     }
 
-    /* 각 글 카드 (모바일 기본: 세로 1열) */
+    /* 각 글 카드 */
     .blog-list li {
       background: #ffffff;
       border: 1px solid #e5e5e5;
       border-radius: 10px;
       padding: 16px;
       margin-bottom: 12px;
+      box-sizing: border-box;   /* 패딩 포함 높이 계산 → 아래 잘림 방지 */
+      overflow: visible;        /* 내용 잘리지 않게 */
     }
 
-    /* 썸네일 박스 */
+    /* 썸네일 박스
+       - 항상 위에 일정한 높이 확보 (이미지 없을 때도 같은 높이)
+       - 이미지 없으면 살짝 회색 배경 + 빈 박스처럼 보이게 */
     .thumb {
       width: 100%;
       margin-bottom: 8px;
       overflow: hidden;
       border-radius: 8px;
+      min-height: 140px;                 /* 이미지 자리 확보 */
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f5f5f5;               /* 이미지 없는 경우 회색 배경 */
     }
 
-    /* 이미지: 카드 폭에 맞게 축소, 과한 크롭 없음 */
+    /* 이미지: 카드 폭에 맞게, 과한 확대/크롭 없이 */
     .thumb img {
-      width: 100%;
-      height: auto;      /* 세로는 비율대로 자동 조정 */
+      max-width: 100%;
+      max-height: 140px;
+      width: auto;
+      height: auto;
       display: block;
-      /* object-fit 제거 → 이미지 전체가 보이도록 */
     }
 
     .blog-list a {
@@ -94,6 +104,7 @@
       font-size: 12px;
       color: #999;
       text-align: right;
+      margin-top: 4px;
     }
 
     /* ───────── PC 레이아웃 (가로 5개) ───────── */
@@ -105,8 +116,8 @@
       }
 
       .blog-list li {
-        margin-bottom: 0;  /* grid에서 gap으로만 간격 조절 */
-        height: 100%;
+        margin-bottom: 0;  /* grid gap으로 간격 처리 */
+        height: 100%;      /* 카드 높이 자동 채우기 */
       }
     }
   </style>
@@ -122,7 +133,7 @@
   <script>
     document.addEventListener("DOMContentLoaded", function () {
       const BLOG_ID    = "stack0222";   // 네이버 블로그 아이디
-      const SHOW_COUNT = 5;             // ★ PC/모바일 모두 5개 표시
+      const SHOW_COUNT = 5;             // 보여줄 글 개수
 
       // Cloudflare Worker 기본 주소
       const WORKER_BASE = "https://purple-rice-7b4d.stack0222.workers.dev";
@@ -144,6 +155,28 @@
       function getTagText(item, tagName) {
         const el = item.getElementsByTagName(tagName)[0];
         return el ? (el.textContent || "") : "";
+      }
+
+      // "2026-02-01 01:12:35" → "26년 02월 01일 일요일"
+      function formatKoreanDate(pubDate) {
+        if (!pubDate) return "";
+        const datePart = pubDate.split(" ")[0]; // "YYYY-MM-DD"
+        const parts = datePart.split("-");
+        if (parts.length !== 3) return pubDate;
+
+        const year  = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10);
+        const day   = parseInt(parts[2], 10);
+
+        const d = new Date(year, month - 1, day);
+        const yoilNames = ["일요일","월요일","화요일","수요일","목요일","금요일","토요일"];
+        const yoil = yoilNames[d.getDay()];
+
+        const yy = String(year).slice(2);              // "2026" → "26"
+        const mm = String(month).padStart(2, "0");     // 2 → "02"
+        const dd = String(day).padStart(2, "0");       // 1 → "01"
+
+        return `${yy}년 ${mm}월 ${dd}일 ${yoil}`;
       }
 
       // description 안에서 첫 번째 이미지 src 추출 후 /img 프록시로 감싸기
@@ -182,6 +215,7 @@
           }
 
           const count = Math.min(items.length, SHOW_COUNT);
+          console.log("RSS item 개수:", items.length, "표시 개수:", count);
 
           for (let i = 0; i < count; i++) {
             const item = items[i];
@@ -200,16 +234,17 @@
               .replace(/<[^>]*>/g, "")
               .slice(0, 100) + "...";
 
-            const date = pubDate ? pubDate.split(" ")[0] : "";
-
+            const dateText = formatKoreanDate(pubDate);
             const thumbUrl = getThumbnailUrl(item);
-            let thumbHTML = "";
+
+            // 항상 thumb 박스를 만들어서
+            // 이미지가 없을 때도 상단 여백 확보
+            let thumbHTML = '<div class="thumb">';
             if (thumbUrl) {
-              thumbHTML =
-                '<div class="thumb">' +
-                  '<img src="' + thumbUrl + '" alt="' + (title || "") + ' 썸네일">' +
-                '</div>';
+              thumbHTML +=
+                '<img src="' + thumbUrl + '" alt="' + (title || "") + ' 썸네일">';
             }
+            thumbHTML += '</div>';
 
             li.innerHTML =
               thumbHTML +
@@ -217,7 +252,7 @@
                 title +
               '</a>' +
               '<div class="desc">' + cleanDesc + '</div>' +
-              '<div class="date">' + date + '</div>';
+              '<div class="date">' + dateText + '</div>';
 
             list.appendChild(li);
           }
