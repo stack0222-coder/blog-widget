@@ -47,29 +47,31 @@
       border-radius: 10px;
       padding: 16px;
       margin-bottom: 12px;
-      box-sizing: border-box;   /* 패딩 포함 높이 계산 */
+      box-sizing: border-box;   /* 패딩 포함 높이 계산 → 아래 잘림 방지 */
       overflow: visible;        /* 내용 잘리지 않게 */
     }
 
     /* 썸네일 박스
-       - 항상 고정 높이 확보 (이미지 없을 때도 같은 비율 유지) */
+       - 항상 위에 일정한 높이 확보 (이미지 없을 때도 같은 높이)
+       - 이미지 없으면 살짝 회색 배경 + 빈 박스처럼 보이게 */
     .thumb {
       width: 100%;
-      height: 150px;            /* 카드 비율에 맞는 고정 높이 */
       margin-bottom: 8px;
       overflow: hidden;
       border-radius: 8px;
-      background: #f5f5f5;      /* 이미지 없는 경우 회색 배경 */
+      min-height: 140px;                 /* 이미지 자리 확보 */
       display: flex;
       align-items: center;
       justify-content: center;
+      background: #f5f5f5;               /* 이미지 없는 경우 회색 배경 */
     }
 
-    /* 이미지: 카드 비율에 맞게 꽉 차게, 필요 시 조금 크롭 */
+    /* 이미지: 카드 폭에 맞게, 과한 확대/크롭 없이 */
     .thumb img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;        /* 비율 유지하며 카드 영역을 꽉 채움 (일부 크롭 허용) */
+      max-width: 100%;
+      max-height: 140px;
+      width: auto;
+      height: auto;
       display: block;
     }
 
@@ -155,28 +157,26 @@
         return el ? (el.textContent || "") : "";
       }
 
-      // pubDate → "26년 02월 01일 일요일" 형식으로 변환
+      // "2026-02-01 01:12:35" → "26년 02월 01일 일요일"
       function formatKoreanDate(pubDate) {
         if (!pubDate) return "";
+        const datePart = pubDate.split(" ")[0]; // "YYYY-MM-DD"
+        const parts = datePart.split("-");
+        if (parts.length !== 3) return pubDate;
 
-        // pubDate 예: "Sun, 01 Feb 2026 19:30:12 +0900"
-        const d = new Date(pubDate);
-        if (isNaN(d.getTime())) {
-          // 혹시 파싱 실패할 경우 원문 그대로 반환
-          return pubDate;
-        }
+        const year  = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10);
+        const day   = parseInt(parts[2], 10);
 
-        const year  = d.getFullYear();
-        const month = d.getMonth() + 1;
-        const day   = d.getDate();
+        const d = new Date(year, month - 1, day);
         const yoilNames = ["일요일","월요일","화요일","수요일","목요일","금요일","토요일"];
         const yoil = yoilNames[d.getDay()];
 
-        const yy = String(year).slice(2);          // "2026" → "26"
-        const mm = String(month).padStart(2, "0");
-        const dd = String(day).padStart(2, "0");
+        const yy = String(year).slice(2);              // "2026" → "26"
+        const mm = String(month).padStart(2, "0");     // 2 → "02"
+        const dd = String(day).padStart(2, "0");       // 1 → "01"
 
-        return `${yy}년 ${mm}월 ${dd}일 ${yo일}`;
+        return `${yy}년 ${mm}월 ${dd}일 ${yoil}`;
       }
 
       // description 안에서 첫 번째 이미지 src 추출 후 /img 프록시로 감싸기
@@ -237,7 +237,8 @@
             const dateText = formatKoreanDate(pubDate);
             const thumbUrl = getThumbnailUrl(item);
 
-            // 항상 thumb 박스 생성 → 이미지 없어도 여백 유지
+            // 항상 thumb 박스를 만들어서
+            // 이미지가 없을 때도 상단 여백 확보
             let thumbHTML = '<div class="thumb">';
             if (thumbUrl) {
               thumbHTML +=
