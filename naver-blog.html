@@ -8,41 +8,32 @@
 
   <!-- =========================
        디자인(CSS) 영역
-       - 색상, 폰트, 간격은 여기서 수정
        ========================= -->
   <style>
     /* ■ 페이지 전체 공통 스타일
-       - background: transparent; → 배경을 투명으로 해서
-         아임웹(부모 페이지)의 배경색/이미지가 보이도록 함 */
+       - background: #ffffff; → iframe 안 배경을 흰색으로 */
     body {
       margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: transparent; /* ← 전체 배경색을 바꾸고 싶으면 이 줄 수정 */
+      background: #ffffff; /* 필요하면 투명으로: transparent */
     }
 
-    /* ■ 전체 위젯을 감싸는 박스
-       - max-width: 720px → 위젯 최대 너비
-       - padding: 16px → 안쪽 여백 */
+    /* ■ 전체 위젯을 감싸는 박스 */
     .naver-blog-latest {
       max-width: 720px;
-      margin: 0 auto;   /* 가운데 정렬 */
+      margin: 0 auto;
       padding: 16px;
-      /* 필요하다면 이 영역에만 배경색을 줄 수도 있음
-         예) background: rgba(255,255,255,0.8); */
     }
 
-    /* ■ 제목 스타일
-       - 글자 크기/정렬/굵기 변경 가능 */
+    /* ■ 제목 스타일 */
     .blog-title {
-      text-align: center;  /* 가운데 정렬 */
-      font-size: 18px;     /* 제목 글자 크기 */
-      font-weight: 700;    /* 글자 굵기 */
-      margin-bottom: 16px; /* 제목 아래 여백 */
-      /* color: #333;  필요하면 제목 색상도 추가 가능 */
+      text-align: center;
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 16px;
     }
 
-    /* ■ 로딩 문구 스타일
-       - 글 불러오는 중일 때 보이는 텍스트 */
+    /* ■ 로딩 문구 스타일 */
     #loading {
       text-align: center;
       color: #888;
@@ -50,69 +41,82 @@
       font-size: 14px;
     }
 
-    /* ■ 글 목록 전체 스타일 (ul)
-       - 불릿(동그라미) 제거 및 여백 초기화 */
+    /* ■ 글 목록 전체 스타일 (ul) */
     .blog-list {
       list-style: none;
       padding: 0;
       margin: 0;
     }
 
-    /* ■ 각 글 박스 스타일 (li 하나가 글 1개)
-       - 테두리, 배경색, 둥근 모서리 등 수정 가능 */
+    /* ■ 각 글 카드(li) 스타일 */
     .blog-list li {
-      background: #fff;           /* 글 박스 배경색 */
-      border: 1px solid #e5e5e5;  /* 테두리 색 */
-      border-radius: 10px;        /* 모서리 둥글게 */
-      padding: 16px;              /* 박스 안쪽 여백 */
-      margin-bottom: 12px;        /* 글 사이 간격 */
-      transition: all 0.3s;       /* hover 효과 부드럽게 */
+      background: #fff;
+      border: 1px solid #e5e5e5;
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 12px;
+      transition: all 0.3s;
     }
 
-    /* ■ 마우스를 올렸을 때 카드 효과 (PC에서만 체감)
-       - 모바일에서는 큰 영향 없음 */
+    /* ■ 마우스 올렸을 때 카드 효과 (PC) */
     .blog-list li:hover {
       transform: translateY(-3px);
       box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-      border-color: #03c75a; /* 네이버 그린 */
+      border-color: #03c75a;
+    }
+
+    /* ■ 썸네일 박스 */
+    .thumb {
+      margin-bottom: 10px;
+      overflow: hidden;
+      border-radius: 8px;
+    }
+
+    /* ■ 썸네일 이미지 스타일
+       - 가로 100%, 세로는 비율 유지
+       - 너무 높게 나오지 않도록 max-height 제한 */
+    .thumb img {
+      width: 100%;
+      height: auto;
+      display: block;
+      object-fit: cover;
+      max-height: 220px; /* 필요 시 높이 조절 */
     }
 
     /* ■ 글 제목 링크 스타일 */
     .blog-list a {
       display: block;
-      font-size: 16px;       /* 제목 글자 크기 */
-      font-weight: 700;      /* 제목 굵기 */
-      color: #222;           /* 제목 색 */
-      text-decoration: none; /* 밑줄 제거 */
-      margin-bottom: 8px;    /* 제목과 본문 사이 간격 */
+      font-size: 16px;
+      font-weight: 700;
+      color: #222;
+      text-decoration: none;
+      margin-bottom: 8px;
       line-height: 1.4;
     }
 
-    /* ■ 제목에 마우스를 올렸을 때 색 변경 (PC용) */
+    /* ■ 제목 hover 색상 (PC) */
     .blog-list a:hover {
-      color: #03c75a; /* 네이버 그린 컬러 */
+      color: #03c75a;
     }
 
-    /* ■ 본문 요약(미리보기) 스타일
-       - 최대 2줄만 보이게 하고 나머지는 잘라냄 */
+    /* ■ 본문 요약 스타일 (2줄로 자르기) */
     .desc {
-      font-size: 13px;    /* 본문 글자 크기 */
-      color: #666;        /* 본문 글자 색 */
+      font-size: 13px;
+      color: #666;
       line-height: 1.6;
       margin-bottom: 6px;
 
-      /* 2줄까지만 보이고 뒤는 자동으로 잘리는 부분 */
       display: -webkit-box;
-      -webkit-line-clamp: 2;       /* 보여줄 줄 수 (2줄) */
+      -webkit-line-clamp: 2;       /* 보여줄 줄 수 */
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
 
-    /* ■ 날짜 텍스트 스타일 */
+    /* ■ 날짜 스타일 */
     .date {
       font-size: 12px;
       color: #999;
-      text-align: right; /* 오른쪽 정렬 */
+      text-align: right;
     }
   </style>
 </head>
@@ -124,41 +128,35 @@
 
   <!-- [1] 전체 위젯을 감싸는 영역 -->
   <div class="naver-blog-latest">
-    <!-- [2] 위젯 제목 텍스트 (여기 글자만 바꿔도 됨) -->
+    <!-- [2] 위젯 제목 -->
     <h2 class="blog-title">📝 블로그 최신글</h2>
 
-    <!-- [3] 데이터 로딩 중일 때 보이는 문구 -->
+    <!-- [3] 데이터 로딩 중 문구 -->
     <div id="loading">불러오는 중...</div>
 
-    <!-- [4] 블로그 글 리스트가 들어갈 자리
-           (자바스크립트로 자동으로 li가 추가됨) -->
+    <!-- [4] 글 목록이 들어갈 곳 (JS가 li를 채워 넣음) -->
     <ul class="blog-list"></ul>
   </div>
 
   <!-- =========================
-       동작(JS) 영역 - 블로그 글 불러오기
+       동작(JS) 영역
        ========================= -->
   <script>
-    // 페이지의 HTML이 모두 준비된 후 실행
     document.addEventListener("DOMContentLoaded", function () {
 
       // [A] 기본 설정 -------------------------------
       // ▶ 네이버 블로그 아이디
-      //    - 본인 블로그로 바꾸려면 여기 "stack0222"만 수정
-      const BLOG_ID = "stack0222";
+      const BLOG_ID = "stack0222";  // ← 본인 블로그면 여기만 수정
 
       // ▶ 한 번에 보여줄 글 개수
       const SHOW_COUNT = 5;
 
-      // [B] RSS 주소 / API 주소 만들기 ---------------
-      // 네이버 블로그 RSS 주소
+      // [B] RSS 주소 / API 주소 ----------------------
       const rssUrl = "https://rss.blog.naver.com/" + BLOG_ID + ".xml";
-
-      // rss2json API를 이용해서 RSS → JSON 형태로 변환
       const apiUrl =
         "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(rssUrl);
 
-      // [C] 실제로 데이터 가져오기 --------------------
+      // [C] 데이터 가져오기 --------------------------
       fetch(apiUrl)
         .then(function (res) {
           return res.json();
@@ -170,7 +168,7 @@
           // 로딩 문구 숨기기
           if (loadingEl) loadingEl.style.display = "none";
 
-          // 데이터가 없거나 에러가 난 경우
+          // 데이터 체크
           if (!data || data.status !== "ok" || !data.items) {
             if (list) {
               list.innerHTML =
@@ -180,20 +178,40 @@
           }
 
           // [D] 글 목록 생성 --------------------------
-          // data.items 중 앞에서부터 SHOW_COUNT개만 사용
           data.items.slice(0, SHOW_COUNT).forEach(function (item) {
             const li = document.createElement("li");
 
-            // 날짜 (예: 2024-02-01 형식만 사용)
+            // 1) 날짜 (예: 2024-02-01)
             const date = item.pubDate ? item.pubDate.split(" ")[0] : "";
 
-            // 본문 내용에서 HTML 태그 제거 후 앞 100글자만 사용
+            // 2) 본문 요약: HTML 태그 제거 후 앞 100글자만
             const rawDesc = item.description || "";
             const cleanDesc =
               rawDesc.replace(/<[^>]*>/g, "").slice(0, 100) + "...";
 
-            // li 안에 들어갈 HTML 구조
+            // 3) 썸네일 이미지 추출 -------------------
+            var thumbHtml = "";
+
+            // (1) rss2json에서 제공하는 thumbnail 필드 우선 사용
+            if (item.thumbnail) {
+              thumbHtml =
+                '<div class="thumb">' +
+                  '<img src="' + item.thumbnail + '" alt="썸네일 이미지">' +
+                '</div>';
+            } else {
+              // (2) thumbnail이 없으면, description 안의 첫 번째 <img> src를 찾아서 사용
+              var match = rawDesc.match(/<img[^>]+src=["']?([^"'>\s]+)["']?[^>]*>/i);
+              if (match && match[1]) {
+                thumbHtml =
+                  '<div class="thumb">' +
+                    '<img src="' + match[1] + '" alt="썸네일 이미지">' +
+                  '</div>';
+              }
+            }
+
+            // 4) li 안에 들어갈 전체 HTML 조립 --------
             li.innerHTML =
+              thumbHtml +  /* 이미지가 있으면 위에 출력, 없으면 그냥 제목부터 시작 */
               '<a href="' + item.link + '" target="_blank" rel="noopener">' +
                 item.title +
               '</a>' +
@@ -203,10 +221,7 @@
             list.appendChild(li);
           });
 
-          // [E] (선택 기능) iframe 높이를 부모 페이지에 알려주기
-          //  - 아임웹에서 이 파일을 iframe으로 불러왔을 때,
-          //    이 문서의 실제 높이를 부모에게 전달해서
-          //    코드위젯 높이를 자동으로 맞출 때 사용
+          // [E] iframe 높이를 부모(아임웹)에 알려주기 ----
           setTimeout(function () {
             const height = document.body.scrollHeight;
             if (window.parent) {
@@ -215,10 +230,10 @@
                 "*"
               );
             }
-          }, 300);
+          }, 500); // 콘텐츠 로딩 여유를 조금 더 줌
         })
         .catch(function () {
-          // 네트워크 에러 / API 호출 실패 시
+          // 에러 처리
           const loadingEl = document.getElementById("loading");
           if (loadingEl) loadingEl.innerText = "불러오기 실패";
         });
@@ -226,5 +241,3 @@
   </script>
 </body>
 </html>
-
-
