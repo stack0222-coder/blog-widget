@@ -49,30 +49,31 @@
       margin-bottom: 12px;
       box-sizing: border-box;   /* 패딩 포함 높이 계산 → 아래 잘림 방지 */
       overflow: visible;        /* 내용 잘리지 않게 */
-      cursor: pointer;          /* 마우스 올리면 손가락 커서 */
+      cursor: pointer;          /* 카드 전체 클릭 가능 표시 */
     }
 
     /* 썸네일 박스
-       - 항상 위에 일정한 높이 확보 (이미지 없을 때도 같은 높이)
-       - 이미지 없으면 살짝 회색 배경 + 빈 박스처럼 보이게 */
+       - 항상 고정 높이 확보 (이미지 없을 때도 같은 높이)
+       - 이미지 없으면 회색 배경 */
     .thumb {
       width: 100%;
+      height: 150px;                 /* 카드 상단 비율용 고정 높이 (원하면 160~180으로 조절) */
       margin-bottom: 8px;
       overflow: hidden;
       border-radius: 8px;
-      min-height: 140px;                 /* 이미지 자리 확보 */
+      background: #f5f5f5;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: #f5f5f5;               /* 이미지 없는 경우 회색 배경 */
     }
 
-    /* 이미지: 카드 폭에 맞게, 과한 확대/크롭 없이 */
+    /* 이미지: 전체가 보이면서(잘림 X), 박스를 최대한 채우게 */
     .thumb img {
       max-width: 100%;
-      max-height: 140px;
+      max-height: 100%;
       width: auto;
       height: auto;
+      object-fit: contain;           /* 이미지를 자르지 않고 통째로 보여줌 */
       display: block;
     }
 
@@ -158,10 +159,9 @@
         return el ? (el.textContent || "") : "";
       }
 
-      // 현재는 원본 pubDate 그대로 표시 (다음 단계에서 포맷 수정 예정)
+      // (임시) 날짜는 원본 pubDate 그대로 표시
       function formatKoreanDate(pubDate) {
         if (!pubDate) return "";
-        // 기존 코드 유지 (나중에 한글 포맷으로 다시 손볼 예정)
         return pubDate;
       }
 
