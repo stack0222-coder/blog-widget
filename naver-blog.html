@@ -79,13 +79,14 @@
       margin-bottom: 8px;
       overflow: hidden;
       border-radius: 8px;
-      background: transparent;       /* ★ 회색 제거, 투명 처리 */
+      background: transparent;       /* 회색 제거, 투명 처리 */
       display: flex;
       align-items: center;
       justify-content: center;
     }
 
-    /* ■ 썸네일 이미지 */
+    /* ■ 썸네일 이미지
+       - border-radius 로 사진 모서리도 둥글게 */
     .thumb img {
       max-width: 100%;
       max-height: 100%;
@@ -93,6 +94,7 @@
       height: auto;
       object-fit: contain;           /* 이미지를 자르지 않고 통째로 보여줌 */
       display: block;
+      border-radius: 8px;            /* ★ 사진 모서리 라운딩 */
     }
 
     /* ■ 제목 */
@@ -128,7 +130,7 @@
       font-size: 12px;
       color: #999;
       text-align: right;
-      margin-top: auto;   /* ★ 카드의 맨 아래로 밀어내기 */
+      margin-top: auto;   /* 카드의 맨 아래로 밀어내기 */
       padding-top: 4px;   /* 위 내용과 살짝 간격 */
     }
 
@@ -221,120 +223,3 @@
         }
 
         if (isNaN(d.getTime())) {
-          return pubDate;
-        }
-
-        const year  = d.getFullYear();
-        const month = d.getMonth() + 1;
-        const day   = d.getDate();
-        const yoilNames = ["일요일","월요일","화요일","수요일","목요일","금요일","토요일"];
-        const yoil = yoilNames[d.getDay()];
-
-        const yy = String(year).slice(2);   // 2026 → 26
-
-        return yy + "년 " + month + "월 " + day + "일 " + yoil;
-      }
-
-      /* description 안에서 첫 번째 이미지 src 추출 후 /img 프록시로 감싸기 */
-      function getThumbnailUrl(item) {
-        let descHtml = getTagText(item, "description");
-        if (!descHtml) return "";
-
-        descHtml = descHtml.replace(/&amp;/g, "&");
-
-        const m = descHtml.match(/<img[^>]+src=['"]([^'">]+)['"]/i);
-        if (!m || !m[1]) return "";
-
-        const rawUrl = m[1]; // 네이버 원본 이미지 URL
-        return WORKER_BASE + "/img?url=" + encodeURIComponent(rawUrl);
-      }
-
-      /* RSS XML 불러오기 */
-      fetch(rssProxyUrl)
-        .then(function (res) {
-          if (!res.ok) {
-            throw new Error("HTTP 상태 " + res.status);
-          }
-          return res.text();
-        })
-        .then(function (xmlText) {
-          const parser = new DOMParser();
-          const xml    = parser.parseFromString(xmlText, "application/xml");
-
-          const items = xml.getElementsByTagName("item");
-
-          if (loadingEl) loadingEl.style.display = "none";
-
-          if (!items || items.length === 0) {
-            list.innerHTML =
-              '<li style="text-align:center;">글을 불러올 수 없습니다. (item 0개)</li>';
-            return;
-          }
-
-          const count = Math.min(items.length, SHOW_COUNT);
-          console.log("RSS item 개수:", items.length, "표시 개수:", count);
-
-          for (let i = 0; i < count; i++) {
-            const item = items[i];
-            const li   = document.createElement("li");
-
-            const title    = getTagText(item, "title");
-            const link     = getTagText(item, "link");
-            const pubDate  = getTagText(item, "pubDate");
-            let   descHtml = getTagText(item, "description");
-
-            // 본문 요약: HTML 태그 제거 후 100자까지만 사용
-            let cleanDesc = descHtml
-              .replace(/&lt;/g, "<")
-              .replace(/&gt;/g, ">")
-              .replace(/&amp;/g, "&")
-              .replace(/<[^>]*>/g, "")
-              .slice(0, 100) + "...";
-
-            const dateText = formatKoreanDate(pubDate);
-            const thumbUrl = getThumbnailUrl(item);
-
-            // 썸네일 박스 (이미지 유무와 상관없이 생성)
-            let thumbHTML = '<div class="thumb">';
-            if (thumbUrl) {
-              thumbHTML +=
-                '<img src="' + thumbUrl + '" alt="' + (title || "") + ' 썸네일">';
-            }
-            thumbHTML += '</div>';
-
-            // 카드 내용 HTML
-            li.innerHTML =
-              thumbHTML +
-              '<div class="title">' + title + '</div>' +
-              '<div class="desc">' + cleanDesc + '</div>' +
-              '<div class="date">' + dateText + '</div>';
-
-            // 카드 전체 클릭 시 새 탭으로 블로그 글 열기
-            li.addEventListener("click", function () {
-              window.open(link, "_blank");
-            });
-
-            list.appendChild(li);
-          }
-
-          // 아임웹 iframe 높이 자동 조절
-          setTimeout(function () {
-            const height = document.body.scrollHeight;
-            if (window.parent) {
-              window.parent.postMessage(
-                { type: "resize", height: height },
-                "*"
-              );
-            }
-          }, 300);
-        })
-        .catch(function (err) {
-          console.error("fetch 에러:", err);
-          if (loadingEl) {
-            loadingEl.innerText = "불러오기 실패: " + err.message;
-          }
-        });
-    });
-  </script>
-</body>
-</html>
