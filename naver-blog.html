@@ -14,7 +14,7 @@
     }
 
     .naver-blog-latest {
-      max-width: 720px;
+      max-width: 1200px;   /* PC에서 가로 5개가 들어가도록 너비 조금 넓힘 */
       margin: 0 auto;
       padding: 16px;
     }
@@ -40,7 +40,7 @@
       margin: 0;
     }
 
-    /* 각 글 카드 */
+    /* 각 글 카드 (모바일 기본: 세로 1열) */
     .blog-list li {
       background: #ffffff;
       border: 1px solid #e5e5e5;
@@ -57,11 +57,12 @@
       border-radius: 8px;
     }
 
+    /* 이미지: 카드 폭에 맞게 축소, 과한 크롭 없음 */
     .thumb img {
       width: 100%;
+      height: auto;      /* 세로는 비율대로 자동 조정 */
       display: block;
-      object-fit: cover;
-      max-height: 220px;
+      /* object-fit 제거 → 이미지 전체가 보이도록 */
     }
 
     .blog-list a {
@@ -94,6 +95,20 @@
       color: #999;
       text-align: right;
     }
+
+    /* ───────── PC 레이아웃 (가로 5개) ───────── */
+    @media (min-width: 1024px) {
+      .blog-list {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));  /* 한 줄에 5개 */
+        gap: 16px;                                         /* 카드 간격 */
+      }
+
+      .blog-list li {
+        margin-bottom: 0;  /* grid에서 gap으로만 간격 조절 */
+        height: 100%;
+      }
+    }
   </style>
 </head>
 
@@ -107,20 +122,17 @@
   <script>
     document.addEventListener("DOMContentLoaded", function () {
       const BLOG_ID    = "stack0222";   // 네이버 블로그 아이디
-      const SHOW_COUNT = 4;             // 보여줄 글 개수
+      const SHOW_COUNT = 5;             // ★ PC/모바일 모두 5개 표시
 
-      // Cloudflare Worker 기본 주소 (본인 것)
+      // Cloudflare Worker 기본 주소
       const WORKER_BASE = "https://purple-rice-7b4d.stack0222.workers.dev";
       const rssProxyUrl = WORKER_BASE + "/rss?blogId=" + BLOG_ID;
 
       const list      = document.querySelector(".blog-list");
       const loadingEl = document.getElementById("loading");
 
-      // .blog-list를 못 찾는 경우 방어
       if (!list) {
-        if (loadingEl) {
-          loadingEl.innerText = ".blog-list 요소를 찾을 수 없습니다.";
-        }
+        if (loadingEl) loadingEl.innerText = ".blog-list 요소를 찾을 수 없습니다.";
         return;
       }
 
@@ -139,7 +151,6 @@
         let descHtml = getTagText(item, "description");
         if (!descHtml) return "";
 
-        // 엔티티 일부 복원 (&amp; -> &)
         descHtml = descHtml.replace(/&amp;/g, "&");
 
         const m = descHtml.match(/<img[^>]+src=['"]([^'">]+)['"]/i);
@@ -149,7 +160,6 @@
         return WORKER_BASE + "/img?url=" + encodeURIComponent(rawUrl);
       }
 
-      // RSS XML 가져오기
       fetch(rssProxyUrl)
         .then(function (res) {
           if (!res.ok) {
@@ -172,7 +182,6 @@
           }
 
           const count = Math.min(items.length, SHOW_COUNT);
-          console.log("RSS item 개수:", items.length, "표시 개수:", count);
 
           for (let i = 0; i < count; i++) {
             const item = items[i];
