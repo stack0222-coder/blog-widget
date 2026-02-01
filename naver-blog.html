@@ -159,10 +159,39 @@
         return el ? (el.textContent || "") : "";
       }
 
-      // (임시) 날짜는 원본 pubDate 그대로 표시
+      // pubDate → "26년 2월 1일 일요일" 형식으로 변환
       function formatKoreanDate(pubDate) {
         if (!pubDate) return "";
-        return pubDate;
+
+        // pubDate 예: "Sun, 01 Feb 2026 19:30:12 +0900"
+        let d = new Date(pubDate);
+
+        // 혹시 파싱 실패할 경우, YYYY-MM-DD 형태도 한 번 더 시도
+        if (isNaN(d.getTime())) {
+          const m = pubDate.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+          if (m) {
+            const y = parseInt(m[1], 10);
+            const mo = parseInt(m[2], 10);
+            const da = parseInt(m[3], 10);
+            d = new Date(y, mo - 1, da);
+          }
+        }
+
+        if (isNaN(d.getTime())) {
+          // 그래도 안 되면 원문 반환
+          return pubDate;
+        }
+
+        const year  = d.getFullYear();
+        const month = d.getMonth() + 1;
+        const day   = d.getDate();
+        const yoilNames = ["일요일","월요일","화요일","수요일","목요일","금요일","토요일"];
+        const yoil = yoilNames[d.getDay()];
+
+        const yy = String(year).slice(2);   // "2026" → "26"
+
+        // 앞에 0 없이: 2월, 1일
+        return yy + "년 " + month + "월 " + day + "일 " + yoil;
       }
 
       // description 안에서 첫 번째 이미지 src 추출 후 /img 프록시로 감싸기
