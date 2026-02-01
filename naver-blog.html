@@ -1,24 +1,36 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
+  <!--
+    [기본 설정]
+    - UTF-8 한글 인코딩
+    - 모바일 화면 대응 (viewport)
+  -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>네이버 블로그 최신글</title>
 
+  <!--
+    [디자인(CSS) 영역]
+    - 카드 모양, 폰트, 간격, 이미지 크기 등을 여기서 조절합니다.
+  -->
   <style>
-    /* 전체 페이지 배경 : 투명 (아임웹 배경 사용) */
+    /* ■ 전체 페이지 배경 : 투명
+       - 아임웹(부모 페이지)의 배경색/배경이미지가 그대로 비치게 합니다. */
     body {
       margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: transparent;
     }
 
+    /* ■ 전체 위젯 박스 */
     .naver-blog-latest {
-      max-width: 1200px;   /* PC에서 가로 5개 들어가도록 너비 */
+      max-width: 1200px;   /* [디자인] PC에서 가로 5개 들어가도록 너비 */
       margin: 0 auto;
       padding: 16px;
     }
 
+    /* ■ 위젯 제목 */
     .blog-title {
       text-align: center;
       font-size: 18px;
@@ -26,38 +38,42 @@
       margin-bottom: 16px;
     }
 
+    /* ■ 로딩 문구 */
     #loading {
       text-align: center;
       color: #888;
       padding: 20px 0;
       font-size: 14px;
-      white-space: pre-line; /* 줄바꿈 표시 */
+      white-space: pre-line;
     }
 
+    /* ■ 리스트 기본 설정 */
     .blog-list {
       list-style: none;
       padding: 0;
       margin: 0;
     }
 
-    /* 각 글 카드 */
+    /* ■ 각 글 카드(li)
+       - flex 컬럼으로 바꿔서, 날짜를 맨 아래로 보내기 쉽게 함 */
     .blog-list li {
       background: #ffffff;
       border: 1px solid #e5e5e5;
       border-radius: 10px;
       padding: 16px;
       margin-bottom: 12px;
-      box-sizing: border-box;   /* 패딩 포함 높이 계산 → 아래 잘림 방지 */
-      overflow: visible;        /* 내용 잘리지 않게 */
-      cursor: pointer;          /* 카드 전체 클릭 가능 표시 */
+      box-sizing: border-box;
+      overflow: visible;
+      cursor: pointer;
+
+      display: flex;              /* 세로 방향 flex 컨테이너 */
+      flex-direction: column;
     }
 
-    /* 썸네일 박스
-       - 항상 고정 높이 확보 (이미지 없을 때도 같은 높이)
-       - 이미지 없으면 회색 배경 */
+    /* ■ 썸네일 박스(.thumb) */
     .thumb {
       width: 100%;
-      height: 150px;                 /* 카드 상단 비율용 고정 높이 (원하면 160~180으로 조절) */
+      height: 150px;                 /* [디자인] 카드 상단 이미지 영역 높이 */
       margin-bottom: 8px;
       overflow: hidden;
       border-radius: 8px;
@@ -67,7 +83,7 @@
       justify-content: center;
     }
 
-    /* 이미지: 전체가 보이면서(잘림 X), 박스를 최대한 채우게 */
+    /* ■ 썸네일 이미지 */
     .thumb img {
       max-width: 100%;
       max-height: 100%;
@@ -77,7 +93,7 @@
       display: block;
     }
 
-    /* 제목 텍스트 */
+    /* ■ 제목 */
     .title {
       font-size: 16px;
       font-weight: 700;
@@ -86,11 +102,12 @@
       line-height: 1.4;
     }
 
-    /* 카드에 마우스 올렸을 때 제목 색상 변경 */
+    /* 호버 시 제목 색상 변경 (PC) */
     .blog-list li:hover .title {
       color: #03c75a;
     }
 
+    /* ■ 본문 요약 (2줄 제한) */
     .desc {
       font-size: 13px;
       color: #666;
@@ -102,24 +119,43 @@
       overflow: hidden;
     }
 
+    /* ■ 날짜
+       - margin-top: auto 로 위쪽 여백을 남은 공간 전부로 만들어
+         카드 맨 아래에 고정되도록 함 */
     .date {
       font-size: 12px;
       color: #999;
       text-align: right;
-      margin-top: 4px;
+      margin-top: auto;   /* ★ 카드의 맨 아래로 밀어내기 */
+      padding-top: 4px;   /* 위 내용과 살짝 간격 */
     }
 
     /* ───────── PC 레이아웃 (가로 5개) ───────── */
     @media (min-width: 1024px) {
       .blog-list {
         display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));  /* 한 줄에 5개 */
-        gap: 16px;                                         /* 카드 간격 */
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 16px;
       }
 
       .blog-list li {
-        margin-bottom: 0;  /* grid gap으로 간격 처리 */
-        height: 100%;      /* 카드 높이 자동 채우기 */
+        margin-bottom: 0;
+        height: 100%;
+      }
+    }
+
+    /* ───────── 모바일 전용 이미지 확대 설정 ───────── */
+    @media (max-width: 767px) {
+      .thumb {
+        height: 200px; /* [모바일 디자인] 필요하면 180~220 사이로 조절 */
+      }
+
+      .thumb img {
+        width: 100%;
+        height: 100%;
+        max-width: none;
+        max-height: none;
+        object-fit: cover;  /* 박스를 가득 채우되, 일부 잘릴 수 있음 */
       }
     }
   </style>
@@ -127,13 +163,19 @@
 
 <body>
   <div class="naver-blog-latest">
+    <!-- [제목 텍스트] -->
     <h2 class="blog-title">📝 블로그 최신글</h2>
+
+    <!-- 로딩 중 표시 -->
     <div id="loading">불러오는 중...</div>
+
+    <!-- JS가 li를 추가해 넣는 자리 -->
     <ul class="blog-list"></ul>
   </div>
 
   <script>
     document.addEventListener("DOMContentLoaded", function () {
+      /* 기본 설정 */
       const BLOG_ID    = "stack0222";   // 네이버 블로그 아이디
       const SHOW_COUNT = 5;             // 보여줄 글 개수
 
@@ -153,24 +195,23 @@
         loadingEl.innerText = "RSS 불러오는 중...\n" + rssProxyUrl;
       }
 
-      // XML <item> 안에서 특정 태그 텍스트 추출
+      /* XML <item> 안에서 특정 태그 텍스트 추출 */
       function getTagText(item, tagName) {
         const el = item.getElementsByTagName(tagName)[0];
         return el ? (el.textContent || "") : "";
       }
 
-      // pubDate → "26년 2월 1일 일요일" 형식으로 변환
+      /* pubDate → "26년 2월 1일 일요일" 형식으로 변환 */
       function formatKoreanDate(pubDate) {
         if (!pubDate) return "";
 
-        // pubDate 예: "Sun, 01 Feb 2026 19:30:12 +0900"
         let d = new Date(pubDate);
 
-        // 혹시 파싱 실패할 경우, YYYY-MM-DD 형태도 한 번 더 시도
+        // 브라우저에 따라 파싱 실패할 가능성 대비
         if (isNaN(d.getTime())) {
           const m = pubDate.match(/(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
           if (m) {
-            const y = parseInt(m[1], 10);
+            const y  = parseInt(m[1], 10);
             const mo = parseInt(m[2], 10);
             const da = parseInt(m[3], 10);
             d = new Date(y, mo - 1, da);
@@ -178,7 +219,6 @@
         }
 
         if (isNaN(d.getTime())) {
-          // 그래도 안 되면 원문 반환
           return pubDate;
         }
 
@@ -188,13 +228,12 @@
         const yoilNames = ["일요일","월요일","화요일","수요일","목요일","금요일","토요일"];
         const yoil = yoilNames[d.getDay()];
 
-        const yy = String(year).slice(2);   // "2026" → "26"
+        const yy = String(year).slice(2);   // 2026 → 26
 
-        // 앞에 0 없이: 2월, 1일
         return yy + "년 " + month + "월 " + day + "일 " + yoil;
       }
 
-      // description 안에서 첫 번째 이미지 src 추출 후 /img 프록시로 감싸기
+      /* description 안에서 첫 번째 이미지 src 추출 후 /img 프록시로 감싸기 */
       function getThumbnailUrl(item) {
         let descHtml = getTagText(item, "description");
         if (!descHtml) return "";
@@ -208,6 +247,7 @@
         return WORKER_BASE + "/img?url=" + encodeURIComponent(rawUrl);
       }
 
+      /* RSS XML 불러오기 */
       fetch(rssProxyUrl)
         .then(function (res) {
           if (!res.ok) {
@@ -241,7 +281,7 @@
             const pubDate  = getTagText(item, "pubDate");
             let   descHtml = getTagText(item, "description");
 
-            // 본문 요약: HTML 태그 제거 후 100자
+            // 본문 요약: HTML 태그 제거 후 100자까지만 사용
             let cleanDesc = descHtml
               .replace(/&lt;/g, "<")
               .replace(/&gt;/g, ">")
@@ -252,7 +292,7 @@
             const dateText = formatKoreanDate(pubDate);
             const thumbUrl = getThumbnailUrl(item);
 
-            // 항상 thumb 박스를 만들어서 이미지 유무와 상관없이 상단 여백 확보
+            // 썸네일 박스 (이미지 유무와 상관없이 생성)
             let thumbHTML = '<div class="thumb">';
             if (thumbUrl) {
               thumbHTML +=
@@ -260,7 +300,7 @@
             }
             thumbHTML += '</div>';
 
-            // 카드 내용 (a 제거 → li 전체를 클릭 영역으로 사용)
+            // 카드 내용 HTML
             li.innerHTML =
               thumbHTML +
               '<div class="title">' + title + '</div>' +
