@@ -7,16 +7,19 @@
   <title>네이버 블로그 최신글</title>
 
   <style>
+    /* ★ 전체 페이지 배경: 투명 */
     body {
       margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: transparent;  /* 바탕 흰색 */
+      background: transparent;  /* ← 아임웹 배경이 그대로 비침 */
     }
 
     .naver-blog-latest {
       max-width: 720px;
       margin: 0 auto;
       padding: 16px;
+      /* 필요하면 이 박스에만 배경을 줄 수 있음
+         예) background: rgba(255,255,255,0.9); */
     }
 
     .blog-title {
@@ -39,8 +42,9 @@
       margin: 0;
     }
 
+    /* 각 글 카드 */
     .blog-list li {
-      background: #fff;
+      background: #ffffff;          /* 카드 배경은 흰색 */
       border: 1px solid #e5e5e5;
       border-radius: 10px;
       padding: 12px;
@@ -112,35 +116,32 @@
       const apiUrl =
         "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(rssUrl);
 
-      // [1] RSS 항목에서 "원래 썸네일 URL" 뽑아오기
-      function getRawThumbnail(item) {
-        // 1) rss2json이 주는 thumbnail 필드
-        if (item.thumbnail) return item.thumbnail;
+      /* [1] 썸네일 URL 추출 (가장 단순한 버전) */
+      function getThumbnail(item) {
+        let url = "";
 
-        // 2) enclosure 안의 링크
-        if (item.enclosure && (item.enclosure.link || item.enclosure.url)) {
-          return item.enclosure.link || item.enclosure.url;
+        // 1) rss2json thumbnail 필드
+        if (item.thumbnail) {
+          url = item.thumbnail;
+        }
+        // 2) enclosure 에서
+        else if (item.enclosure && (item.enclosure.link || item.enclosure.url)) {
+          url = item.enclosure.link || item.enclosure.url;
+        }
+        // 3) description / content 안의 첫 번째 <img src="...">
+        else {
+          const html = item.description || item.content || "";
+          const m = html.match(/<img[^>]+src=['"]([^'">]+)['"]/i);
+          if (m && m[1]) {
+            url = m[1];
+          }
         }
 
-        // 3) description / content 안의 <img src="..."> 혹은 '...'
-        var html = item.description || item.content || "";
-        var m = html.match(/<img[^>]+src=['"]([^'">]+)['"]/i);
-        if (m && m[1]) return m[1];
-
-        // 4) blogfiles.naver.net 패턴만이라도 잡기
-        var m2 = html.match(/https?:\/\/blogfiles\.naver\.net\/[^\s'"]+/i);
-        if (m2 && m2[0]) return m2[0];
-
-        return "";
-      }
-
-      // [2] 외부 이미지 프록시로 감싸기 (hotlink 차단 우회)
-      function proxyImage(url) {
         if (!url) return "";
-        // http/https 제거
-        var clean = url.replace(/^https?:\/\//i, "");
-        // images.weserv.nl 을 통해 대신 불러오기
-        return "https://images.weserv.nl/?url=" + encodeURIComponent(clean);
+
+        // http → https 강제
+        url = url.replace(/^http:\/\//i, "https://");
+        return url;
       }
 
       fetch(apiUrl)
@@ -151,6 +152,7 @@
 
           if (loadingEl) loadingEl.style.display = "none";
 
+          // 데이터 에러 처리
           if (!data || data.status !== "ok" || !data.items) {
             if (list) {
               list.innerHTML =
@@ -159,6 +161,10 @@
             return;
           }
 
+          // 최신글 제목이 뭔지 콘솔에 찍어보기 (디버그용)
+          console.log("RSS 타이틀 목록:", data.items.map(i => i.title));
+
+          // 글 목록 생성
           data.items.slice(0, SHOW_COUNT).forEach(function (item) {
             const li = document.createElement("li");
 
@@ -167,11 +173,10 @@
             const cleanDesc =
               rawDesc.replace(/<[^>]*>/g, "").slice(0, 100) + "...";
 
-            // 원본 썸네일 URL → 프록시 URL
-            const rawThumb = getRawThumbnail(item);
-            const thumbUrl = proxyImage(rawThumb);
-
+            // 썸네일 URL
+            const thumbUrl = getThumbnail(item);
             let thumbHTML = "";
+
             if (thumbUrl) {
               thumbHTML =
                 '<div class="thumb">' +
@@ -190,7 +195,7 @@
             list.appendChild(li);
           });
 
-          // iframe 높이 자동 조절 (아임웹용)
+          // 아임웹 iframe 높이 자동 조절
           setTimeout(function () {
             const height = document.body.scrollHeight;
             if (window.parent) {
@@ -201,9 +206,10 @@
             }
           }, 300);
         })
-        .catch(function () {
+        .catch(function (err) {
           const loadingEl = document.getElementById("loading");
           if (loadingEl) loadingEl.innerText = "불러오기 실패";
+          console.error(err);
         });
     });
   </script>
