@@ -1,251 +1,140 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <!-- 한글/모바일 기본 설정 -->
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>네이버 블로그 최신글</title>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
 
-  <style>
-    /* ■ 페이지 전체 공통 스타일 (배경 흰색) */
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: transparent;  /* ← 바탕 투명 */
+  // [A] 기본 설정
+  const BLOG_ID = "stack0222";   // ← 네이버 블로그 아이디
+  const SHOW_COUNT = 5;          // ← 보여줄 글 개수
+
+  // [B] RSS / API 주소
+  const rssUrl = "https://rss.blog.naver.com/" + BLOG_ID + ".xml";
+  const apiUrl =
+    "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(rssUrl);
+
+  // [C] 썸네일 URL 보정 함수
+  function normalizeThumbnailUrl(url) {
+    if (!url) return "";
+
+    // 1) http → https 강제 변경
+    url = url.replace(/^http:\/\//i, "https://");
+
+    // 2) blogthumb → blogfiles 로 변경 + ?뒤 파라미터 제거
+    if (url.indexOf("blogthumb.pstatic.net") !== -1) {
+      url = url.replace("blogthumb.pstatic.net", "blogfiles.pstatic.net");
+      var qIndex = url.indexOf("?");
+      if (qIndex !== -1) {
+        url = url.substring(0, qIndex); // ? 뒤는 잘라냄
+      }
     }
 
-    /* ■ 전체 위젯을 감싸는 박스 */
-    .naver-blog-latest {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 16px;
+    return url;
+  }
+
+  // [D] 썸네일 이미지 URL 추출 함수
+  function getThumbnail(item) {
+    var url = "";
+
+    // 1) rss2json thumbnail 필드
+    if (item.thumbnail) {
+      url = item.thumbnail;
     }
-
-    /* ■ 제목 스타일 */
-    .blog-title {
-      text-align: center;
-      font-size: 18px;
-      font-weight: 700;
-      margin-bottom: 16px;
+    // 2) enclosure 에서 찾기
+    else if (item.enclosure && (item.enclosure.link || item.enclosure.url)) {
+      url = item.enclosure.link || item.enclosure.url;
     }
+    // 3) description / content 안의 <img src="..."> / <img src='...'>
+    else {
+      var html = item.description || item.content || "";
 
-    /* ■ 로딩 문구 스타일 */
-    #loading {
-      text-align: center;
-      color: #888;
-      padding: 20px 0;
-      font-size: 14px;
-    }
-
-    /* ■ 목록(ul) 기본 스타일 */
-    .blog-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
-
-    /* ■ 각 글 카드(li) 스타일 */
-    .blog-list li {
-      background: #fff;
-      border: 1px solid #e5e5e5;
-      border-radius: 10px;
-      padding: 12px;
-      margin-bottom: 12px;
-    }
-
-    /* ■ 썸네일 영역 */
-    .thumb {
-      width: 100%;
-      margin-bottom: 8px;
-      overflow: hidden;
-      border-radius: 8px;
-    }
-
-    /* ■ 썸네일 이미지 스타일 */
-    .thumb img {
-      width: 100%;
-      display: block;
-      object-fit: cover;
-      max-height: 220px;  /* 너무 길어지지 않게 제한 */
-    }
-
-    /* ■ 글 제목 링크 스타일 */
-    .blog-list a {
-      display: block;
-      font-size: 16px;
-      font-weight: 700;
-      color: #222;
-      text-decoration: none;
-      margin-bottom: 8px;
-      line-height: 1.4;
-    }
-
-    .blog-list a:hover {
-      color: #03c75a;
-    }
-
-    /* ■ 본문 요약 (2줄까지만 표시) */
-    .desc {
-      font-size: 13px;
-      color: #666;
-      line-height: 1.6;
-      margin-bottom: 6px;
-
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
-
-    /* ■ 날짜 스타일 */
-    .date {
-      font-size: 12px;
-      color: #999;
-      text-align: right;
-    }
-  </style>
-</head>
-
-<body>
-  <div class="naver-blog-latest">
-    <!-- 제목 텍스트 (여기 글자만 바꿔도 됨) -->
-    <h2 class="blog-title">📝 블로그 최신글</h2>
-
-    <!-- 데이터 로딩 중 표시 -->
-    <div id="loading">불러오는 중...</div>
-
-    <!-- 블로그 글 리스트가 들어갈 자리 -->
-    <ul class="blog-list"></ul>
-  </div>
-
-  <!-- 동작(JS) 영역 -->
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-
-      // [A] 기본 설정
-      const BLOG_ID = "stack0222";   // ← 네이버 블로그 아이디
-      const SHOW_COUNT = 5;          // ← 보여줄 글 개수
-
-      // [B] RSS / API 주소
-      const rssUrl = "https://rss.blog.naver.com/" + BLOG_ID + ".xml";
-      const apiUrl =
-        "https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(rssUrl);
-
-      // [C] 썸네일 이미지 URL 추출 함수
-      function getThumbnail(item) {
-        let url = "";
-
-        // 1) rss2json의 thumbnail 필드
-        if (item.thumbnail) {
-          url = item.thumbnail;
+      var m = html.match(/<img[^>]+src=['"]([^'">]+)['"]/i);
+      if (m && m[1]) {
+        url = m[1];
+      } else {
+        // 4) blogfiles.naver.net 형태의 URL만이라도 잡기
+        var m2 = html.match(/https?:\/\/blogfiles\.naver\.net\/[^\s'"]+/i);
+        if (m2 && m2[0]) {
+          url = m2[0];
         }
+      }
+    }
 
-        // 2) enclosure 안에 이미지가 있을 경우
-        else if (item.enclosure && (item.enclosure.link || item.enclosure.url)) {
-          url = item.enclosure.link || item.enclosure.url;
+    return normalizeThumbnailUrl(url);
+  }
+
+  // [E] 실제 데이터 가져오기
+  fetch(apiUrl)
+    .then(function (res) {
+      return res.json();
+    })
+    .then(function (data) {
+      var list = document.querySelector(".blog-list");
+      var loadingEl = document.getElementById("loading");
+
+      // 로딩 문구 숨기기
+      if (loadingEl) loadingEl.style.display = "none";
+
+      // 데이터가 없거나 에러일 때
+      if (!data || data.status !== "ok" || !data.items) {
+        if (list) {
+          list.innerHTML =
+            '<li style="text-align:center;">글을 불러올 수 없습니다.</li>';
         }
-
-        // 3) description / content 안에서 <img src="..."> 또는 <img src='...'> 찾기
-        else {
-          const html = item.description || item.content || "";
-
-          // img 태그 안의 src 속성
-          let m = html.match(/<img[^>]+src=['"]([^'">]+)['"]/i);
-          if (m && m[1]) {
-            url = m[1];
-          } else {
-            // 4) 네이버 블로그 이미지 도메인(blogfiles.naver.net) URL만이라도 찾기
-            const m2 = html.match(/https?:\/\/blogfiles\.naver\.net\/[^\s'"]+/i);
-            if (m2 && m2[0]) {
-              url = m2[0];
-            }
-          }
-        }
-
-        // 5) 아무 것도 없으면 빈 문자열 반환
-        if (!url) return "";
-
-        // 6) http 로 시작하면 https 로 강제 변경 (혼합 콘텐츠 방지용)
-        url = url.replace(/^http:\/\//i, "https://");
-
-        return url;
+        return;
       }
 
-      // [D] 실제 데이터 가져오기
-      fetch(apiUrl)
-        .then(function (res) {
-          return res.json();
-        })
-        .then(function (data) {
-          const list = document.querySelector(".blog-list");
-          const loadingEl = document.getElementById("loading");
+      // [F] 글 목록 생성
+      data.items.slice(0, SHOW_COUNT).forEach(function (item) {
+        var li = document.createElement("li");
 
-          // 로딩 문구 숨기기
-          if (loadingEl) loadingEl.style.display = "none";
+        // 날짜 (예: 2026-02-01 형식)
+        var date = item.pubDate ? item.pubDate.split(" ")[0] : "";
 
-          // 데이터가 없거나 에러인 경우
-          if (!data || data.status !== "ok" || !data.items) {
-            if (list) {
-              list.innerHTML =
-                '<li style="text-align:center;">글을 불러올 수 없습니다.</li>';
-            }
-            return;
-          }
+        // 본문 요약 (HTML 태그 제거 후 앞 100글자)
+        var rawDesc = item.description || "";
+        var cleanDesc =
+          rawDesc.replace(/<[^>]*>/g, "").slice(0, 100) + "...";
 
-          // [E] 글 목록 생성
-          data.items.slice(0, SHOW_COUNT).forEach(function (item) {
-            const li = document.createElement("li");
+        // 썸네일 URL 추출 + 보정
+        var thumbUrl = getThumbnail(item);
+        var thumbHTML = "";
 
-            // 날짜 (예: 2024-02-01 형식)
-            const date = item.pubDate ? item.pubDate.split(" ")[0] : "";
+        if (thumbUrl) {
+          thumbHTML =
+            '<div class="thumb">' +
+              '<img src="' + thumbUrl + '" ' +
+                   'alt="' + (item.title || "") + ' 썸네일" ' +
+                   'referrerpolicy="no-referrer">' +  // ★ referer 안 보내기
+            '</div>';
+        }
 
-            // 본문 요약 (HTML 태그 제거 후 앞 100글자)
-            const rawDesc = item.description || "";
-            const cleanDesc =
-              rawDesc.replace(/<[^>]*>/g, "").slice(0, 100) + "...";
+        // li 안에 들어갈 전체 HTML
+        li.innerHTML =
+          thumbHTML +
+          '<a href="' + item.link + '" target="_blank" rel="noopener">' +
+            item.title +
+          '</a>' +
+          '<div class="desc">' + cleanDesc + '</div>' +
+          '<div class="date">' + date + '</div>';
 
-            // 썸네일 URL 추출
-            const thumbUrl = getThumbnail(item);
-            let thumbHTML = "";
+        list.appendChild(li);
+      });
 
-            // 이미지가 있을 때만 썸네일 박스 생성
-            if (thumbUrl) {
-              thumbHTML =
-                '<div class="thumb">' +
-                  '<img src="' + thumbUrl + '" alt="' + (item.title || "") + ' 썸네일">' +
-                '</div>';
-            }
-
-            // li 안에 들어갈 전체 HTML
-            li.innerHTML =
-              thumbHTML +
-              '<a href="' + item.link + '" target="_blank" rel="noopener">' +
-                item.title +
-              '</a>' +
-              '<div class="desc">' + cleanDesc + '</div>' +
-              '<div class="date">' + date + '</div>';
-
-            list.appendChild(li);
-          });
-
-          // [F] (선택) 부모 iframe 높이 자동 조절용
-          setTimeout(function () {
-            const height = document.body.scrollHeight;
-            if (window.parent) {
-              window.parent.postMessage(
-                { type: "resize", height: height },
-                "*"
-              );
-            }
-          }, 300);
-        })
-        .catch(function () {
-          const loadingEl = document.getElementById("loading");
-          if (loadingEl) loadingEl.innerText = "불러오기 실패";
-        });
+      // [G] (선택) 부모 iframe 높이 자동 조절
+      setTimeout(function () {
+        var height = document.body.scrollHeight;
+        if (window.parent) {
+          window.parent.postMessage(
+            { type: "resize", height: height },
+            "*"
+          );
+        }
+      }, 300);
+    })
+    .catch(function (err) {
+      var loadingEl = document.getElementById("loading");
+      if (loadingEl) loadingEl.innerText = "불러오기 실패";
+      console.error(err);
     });
-  </script>
-</body>
-</html>
+});
+</script>
 
 
