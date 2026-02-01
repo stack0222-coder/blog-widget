@@ -108,16 +108,16 @@
       var BLOG_ID = "stack0222";   // 네이버 블로그 아이디
       var SHOW_COUNT = 4;          // 보여줄 글 개수
 
-      // ★★★ 여기를 본인 Worker 주소로 바꾸세요 ★★★
-      // 예) var WORKER_BASE = "https://stack-blog-proxy.yourid.workers.dev";
-      var WORKER_BASE = "https://stack-blog-proxy.yourid.workers.dev";
+      // ★ 본인 Cloudflare Worker 기본 주소
+      var WORKER_BASE = "https://purple-rice-7b4d.stack0222.workers.dev";
 
+      // RSS 프록시 주소
       var rssProxyUrl = WORKER_BASE + "/rss?blogId=" + BLOG_ID;
 
-      // RSS XML에서 태그 텍스트 뽑기 유틸함수
+      // XML <item> 안에서 특정 태그 텍스트 뽑기
       function getTagText(item, tagName) {
         var el = item.getElementsByTagName(tagName)[0];
-        return el ? el.textContent || "" : "";
+        return el ? (el.textContent || "") : "";
       }
 
       // description 안에서 첫 번째 이미지 src 추출 후 /img 프록시로 감싸기
@@ -132,10 +132,10 @@
         if (!m || !m[1]) return "";
 
         var rawUrl = m[1];
-        // Worker 이미지 프록시 경유
         return WORKER_BASE + "/img?url=" + encodeURIComponent(rawUrl);
       }
 
+      // RSS XML 가져오기
       fetch(rssProxyUrl)
         .then(function (res) { return res.text(); })
         .then(function (xmlText) {
@@ -162,8 +162,8 @@
             var item = items[i];
             var li = document.createElement("li");
 
-            var title = getTagText(item, "title");
-            var link = getTagText(item, "link");
+            var title   = getTagText(item, "title");
+            var link    = getTagText(item, "link");
             var pubDate = getTagText(item, "pubDate");
             var descHtml = getTagText(item, "description");
 
