@@ -68,11 +68,18 @@
 
       display: flex;              /* 세로 방향 flex 컨테이너 */
       flex-direction: column;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
     }
 
-    /* ■ 썸네일 박스(.thumb)
-       - 항상 고정 높이 확보
-       - background: transparent → 사진 뒤 회색 대신 카드 배경색(흰색)만 보이게 */
+    /* ■ 카드 hover/active 시 테두리 색 + 살짝 띄우기 */
+    .blog-list li:hover,
+    .blog-list li:active {
+      border-color: #03c75a;                  /* 테두리 네이버 그린 */
+      box-shadow: 0 3px 8px rgba(0,0,0,0.06); /* 은은한 그림자 */
+      transform: translateY(-2px);            /* 살짝 위로 띄우기 */
+    }
+
+    /* ■ 썸네일 박스(.thumb) */
     .thumb {
       width: 100%;
       height: 150px;                 /* [디자인] 카드 상단 이미지 영역 높이 */
@@ -85,8 +92,7 @@
       justify-content: center;
     }
 
-    /* ■ 썸네일 이미지
-       - border-radius 로 사진 모서리도 둥글게 */
+    /* ■ 썸네일 이미지 (카드와 동일한 라운딩) */
     .thumb img {
       max-width: 100%;
       max-height: 100%;
@@ -94,7 +100,7 @@
       height: auto;
       object-fit: contain;           /* 이미지를 자르지 않고 통째로 보여줌 */
       display: block;
-      border-radius: 8px;            /* ★ 사진 모서리 라운딩 */
+      border-radius: 8px;            /* 사진 모서리 라운딩 */
     }
 
     /* ■ 제목 */
@@ -123,9 +129,7 @@
       overflow: hidden;
     }
 
-    /* ■ 날짜
-       - margin-top: auto 로 위쪽 여백을 남은 공간 전부로 만들어
-         카드 맨 아래에 고정되도록 함 */
+    /* ■ 날짜 : 카드 우측 하단 고정 */
     .date {
       font-size: 12px;
       color: #999;
