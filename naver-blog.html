@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <!-- 기본 설정 -->
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>네이버 블로그 최신글</title>
@@ -14,7 +13,6 @@
       background: transparent;
     }
 
-    /* ▣ 위젯 전체 박스 */
     .naver-blog-latest {
       max-width: 720px;
       margin: 0 auto;
@@ -50,7 +48,7 @@
       margin-bottom: 12px;
     }
 
-    /* ▣ 썸네일 박스 */
+    /* ▣ 썸네일 */
     .thumb {
       width: 100%;
       margin-bottom: 8px;
@@ -100,63 +98,57 @@
 
 <body>
   <div class="naver-blog-latest">
-    <!-- 제목은 여기 텍스트만 바꾸면 됨 -->
     <h2 class="blog-title">📝 블로그 최신글</h2>
-
     <div id="loading">불러오는 중...</div>
     <ul class="blog-list"></ul>
   </div>
 
   <script>
     document.addEventListener("DOMContentLoaded", function () {
-      /* ▣ 기본 설정 */
       var BLOG_ID = "stack0222";   // 네이버 블로그 아이디
-      var SHOW_COUNT = 4;          // 한 번에 보여줄 글 개수 (원하면 5, 10 등으로 변경)
+      var SHOW_COUNT = 4;          // 보여줄 글 개수
 
-      /* ▣ RSS / API 주소
-         count=SHOW_COUNT 로 명시해서 여러 개 글 가져오게 강제 */
-      var rssUrl = "https://rss.blog.naver.com/" + BLOG_ID + ".xml";
-      var apiUrl =
-        "https://api.rss2json.com/v1/api.json"
-        + "?rss_url=" + encodeURIComponent(rssUrl)
-        + "&count=" + SHOW_COUNT;
+      // ★★★ 여기를 본인 Worker 주소로 바꾸세요 ★★★
+      // 예) var WORKER_BASE = "https://stack-blog-proxy.yourid.workers.dev";
+      var WORKER_BASE = "https://stack-blog-proxy.yourid.workers.dev";
 
-      /* [1] RSS 항목에서 원본 썸네일 URL 추출 */
-      function getRawThumbnail(item) {
-        // 1) rss2json thumbnail 필드
-        if (item.thumbnail) {
-          return item.thumbnail;
-        }
+      var rssProxyUrl = WORKER_BASE + "/rss?blogId=" + BLOG_ID;
 
-        // 2) description / content 안의 첫 번째 <img src="...">
-        var html = item.description || item.content || "";
-        var m = html.match(/<img[^>]+src=['"]([^'">]+)['"]/i);
-        if (m && m[1]) {
-          return m[1];
-        }
-
-        return "";
+      // RSS XML에서 태그 텍스트 뽑기 유틸함수
+      function getTagText(item, tagName) {
+        var el = item.getElementsByTagName(tagName)[0];
+        return el ? el.textContent || "" : "";
       }
 
-      /* [2] 외부 이미지 프록시로 감싸기 (images.weserv.nl 사용)
-         - 네이버 blogthumb의 핫링크 제한을 우회하기 위한 용도 */
-      function proxyImage(url) {
-        if (!url) return "";
+      // description 안에서 첫 번째 이미지 src 추출 후 /img 프록시로 감싸기
+      function getThumbnailUrl(item) {
+        var descHtml = getTagText(item, "description");
+        if (!descHtml) return "";
 
-        // http/https 제거 (weserv 규칙에 맞게)
-        var clean = url.replace(/^https?:\/\//i, "");
-        return "https://images.weserv.nl/?url=" + encodeURIComponent(clean);
+        // HTML 엔티티 복원 (&amp; -> &)
+        descHtml = descHtml.replace(/&amp;/g, "&");
+
+        var m = descHtml.match(/<img[^>]+src=['"]([^'">]+)['"]/i);
+        if (!m || !m[1]) return "";
+
+        var rawUrl = m[1];
+        // Worker 이미지 프록시 경유
+        return WORKER_BASE + "/img?url=" + encodeURIComponent(rawUrl);
       }
 
-      fetch(apiUrl)
-        .then(function (res) { return res.json(); })
-        .then(function (data) {
+      fetch(rssProxyUrl)
+        .then(function (res) { return res.text(); })
+        .then(function (xmlText) {
+          var parser = new DOMParser();
+          var xml = parser.parseFromString(xmlText, "application/xml");
+
+          var items = xml.getElementsByTagName("item");
           var list = document.querySelector(".blog-list");
           var loadingEl = document.getElementById("loading");
 
           if (loadingEl) loadingEl.style.display = "none";
 
-          if (!data || data.status !== "ok" || !data.items || !data.items.length) {
+          if (!items || items.length === 0) {
             if (list) {
               list.innerHTML =
                 '<li style="text-align:center;">글을 불러올 수 없습니다.</li>';
@@ -164,42 +156,46 @@
             return;
           }
 
-          // 실제로 받은 글 개수 확인 (디버그용)
-          console.log("받은 글 개수:", data.items.length);
+          var count = Math.min(items.length, SHOW_COUNT);
 
-          // SHOW_COUNT 만큼만 잘라서 사용
-          var items = data.items.slice(0, SHOW_COUNT);
-
-          items.forEach(function (item) {
+          for (var i = 0; i < count; i++) {
+            var item = items[i];
             var li = document.createElement("li");
 
-            var date = item.pubDate ? item.pubDate.split(" ")[0] : "";
-            var rawDesc = item.description || "";
-            var cleanDesc =
-              rawDesc.replace(/<[^>]*>/g, "").slice(0, 100) + "...";
+            var title = getTagText(item, "title");
+            var link = getTagText(item, "link");
+            var pubDate = getTagText(item, "pubDate");
+            var descHtml = getTagText(item, "description");
 
-            // 썸네일 URL
-            var rawThumb = getRawThumbnail(item);
-            var thumbUrl = proxyImage(rawThumb);
+            // 본문 요약: HTML 태그 제거 후 100자
+            var cleanDesc = descHtml
+              .replace(/&lt;/g, "<")
+              .replace(/&gt;/g, ">")
+              .replace(/&amp;/g, "&")
+              .replace(/<[^>]*>/g, "")
+              .slice(0, 100) + "...";
+
+            var date = pubDate ? pubDate.split(" ")[0] : "";
+
+            var thumbUrl = getThumbnailUrl(item);
             var thumbHTML = "";
-
             if (thumbUrl) {
               thumbHTML =
                 '<div class="thumb">' +
-                  '<img src="' + thumbUrl + '" alt="' + (item.title || "") + ' 썸네일">' +
+                  '<img src="' + thumbUrl + '" alt="' + (title || "") + ' 썸네일">' +
                 '</div>';
             }
 
             li.innerHTML =
               thumbHTML +
-              '<a href="' + item.link + '" target="_blank" rel="noopener">' +
-                item.title +
+              '<a href="' + link + '" target="_blank" rel="noopener">' +
+                title +
               '</a>' +
               '<div class="desc">' + cleanDesc + '</div>' +
               '<div class="date">' + date + '</div>';
 
             list.appendChild(li);
-          });
+          }
 
           // 아임웹 iframe 높이 자동 조절
           setTimeout(function () {
@@ -215,7 +211,7 @@
         .catch(function (err) {
           var loadingEl = document.getElementById("loading");
           if (loadingEl) loadingEl.innerText = "불러오기 실패";
-          console.error("RSS 로딩 오류:", err);
+          console.error(err);
         });
     });
   </script>
