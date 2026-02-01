@@ -3,30 +3,44 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>테스트 - 아임웹 블로그 카드</title>
+  <title>네이버 블로그 최신글</title>
 
   <style>
+    /* 전체 페이지 배경 : 투명 (아임웹 배경 사용) */
     body {
       margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: transparent;
     }
+
     .naver-blog-latest {
       max-width: 720px;
       margin: 0 auto;
       padding: 16px;
     }
+
     .blog-title {
       text-align: center;
       font-size: 18px;
       font-weight: 700;
       margin-bottom: 16px;
     }
+
+    #loading {
+      text-align: center;
+      color: #888;
+      padding: 20px 0;
+      font-size: 14px;
+      white-space: pre-line; /* 줄바꿈 표시 */
+    }
+
     .blog-list {
       list-style: none;
       padding: 0;
       margin: 0;
     }
+
+    /* 각 글 카드 */
     .blog-list li {
       background: #ffffff;
       border: 1px solid #e5e5e5;
@@ -34,31 +48,188 @@
       padding: 16px;
       margin-bottom: 12px;
     }
+
+    /* 썸네일 박스 */
+    .thumb {
+      width: 100%;
+      margin-bottom: 8px;
+      overflow: hidden;
+      border-radius: 8px;
+    }
+
+    .thumb img {
+      width: 100%;
+      display: block;
+      object-fit: cover;
+      max-height: 220px;
+    }
+
+    .blog-list a {
+      display: block;
+      font-size: 16px;
+      font-weight: 700;
+      color: #222;
+      text-decoration: none;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+
+    .blog-list a:hover {
+      color: #03c75a;
+    }
+
+    .desc {
+      font-size: 13px;
+      color: #666;
+      line-height: 1.6;
+      margin-bottom: 6px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .date {
+      font-size: 12px;
+      color: #999;
+      text-align: right;
+    }
   </style>
 </head>
 
 <body>
   <div class="naver-blog-latest">
-    <h2 class="blog-title">📝 블로그 최신글 (테스트)</h2>
+    <h2 class="blog-title">📝 블로그 최신글</h2>
+    <div id="loading">불러오는 중...</div>
     <ul class="blog-list"></ul>
   </div>
 
   <script>
     document.addEventListener("DOMContentLoaded", function () {
-      // .blog-list 요소가 제대로 잡히는지 테스트
-      var list = document.querySelector(".blog-list");
+      const BLOG_ID    = "stack0222";   // 네이버 블로그 아이디
+      const SHOW_COUNT = 4;             // 보여줄 글 개수
 
+      // Cloudflare Worker 기본 주소 (본인 것)
+      const WORKER_BASE = "https://purple-rice-7b4d.stack0222.workers.dev";
+      const rssProxyUrl = WORKER_BASE + "/rss?blogId=" + BLOG_ID;
+
+      const list      = document.querySelector(".blog-list");
+      const loadingEl = document.getElementById("loading");
+
+      // .blog-list를 못 찾는 경우 방어
       if (!list) {
-        alert(".blog-list 요소를 찾지 못했습니다.");
+        if (loadingEl) {
+          loadingEl.innerText = ".blog-list 요소를 찾을 수 없습니다.";
+        }
         return;
       }
 
-      // 테스트용 더미 카드 3개 생성
-      for (var i = 1; i <= 3; i++) {
-        var li = document.createElement("li");
-        li.textContent = "테스트 글 " + i;
-        list.appendChild(li);
+      if (loadingEl) {
+        loadingEl.innerText = "RSS 불러오는 중...\n" + rssProxyUrl;
       }
+
+      // XML <item> 안에서 특정 태그 텍스트 추출
+      function getTagText(item, tagName) {
+        const el = item.getElementsByTagName(tagName)[0];
+        return el ? (el.textContent || "") : "";
+      }
+
+      // description 안에서 첫 번째 이미지 src 추출 후 /img 프록시로 감싸기
+      function getThumbnailUrl(item) {
+        let descHtml = getTagText(item, "description");
+        if (!descHtml) return "";
+
+        // 엔티티 일부 복원 (&amp; -> &)
+        descHtml = descHtml.replace(/&amp;/g, "&");
+
+        const m = descHtml.match(/<img[^>]+src=['"]([^'">]+)['"]/i);
+        if (!m || !m[1]) return "";
+
+        const rawUrl = m[1]; // 네이버 원본 이미지 URL
+        return WORKER_BASE + "/img?url=" + encodeURIComponent(rawUrl);
+      }
+
+      // RSS XML 가져오기
+      fetch(rssProxyUrl)
+        .then(function (res) {
+          if (!res.ok) {
+            throw new Error("HTTP 상태 " + res.status);
+          }
+          return res.text();
+        })
+        .then(function (xmlText) {
+          const parser = new DOMParser();
+          const xml    = parser.parseFromString(xmlText, "application/xml");
+
+          const items = xml.getElementsByTagName("item");
+
+          if (loadingEl) loadingEl.style.display = "none";
+
+          if (!items || items.length === 0) {
+            list.innerHTML =
+              '<li style="text-align:center;">글을 불러올 수 없습니다. (item 0개)</li>';
+            return;
+          }
+
+          const count = Math.min(items.length, SHOW_COUNT);
+          console.log("RSS item 개수:", items.length, "표시 개수:", count);
+
+          for (let i = 0; i < count; i++) {
+            const item = items[i];
+            const li   = document.createElement("li");
+
+            const title    = getTagText(item, "title");
+            const link     = getTagText(item, "link");
+            const pubDate  = getTagText(item, "pubDate");
+            let   descHtml = getTagText(item, "description");
+
+            // 본문 요약: HTML 태그 제거 후 100자
+            let cleanDesc = descHtml
+              .replace(/&lt;/g, "<")
+              .replace(/&gt;/g, ">")
+              .replace(/&amp;/g, "&")
+              .replace(/<[^>]*>/g, "")
+              .slice(0, 100) + "...";
+
+            const date = pubDate ? pubDate.split(" ")[0] : "";
+
+            const thumbUrl = getThumbnailUrl(item);
+            let thumbHTML = "";
+            if (thumbUrl) {
+              thumbHTML =
+                '<div class="thumb">' +
+                  '<img src="' + thumbUrl + '" alt="' + (title || "") + ' 썸네일">' +
+                '</div>';
+            }
+
+            li.innerHTML =
+              thumbHTML +
+              '<a href="' + link + '" target="_blank" rel="noopener">' +
+                title +
+              '</a>' +
+              '<div class="desc">' + cleanDesc + '</div>' +
+              '<div class="date">' + date + '</div>';
+
+            list.appendChild(li);
+          }
+
+          // 아임웹 iframe 높이 자동 조절
+          setTimeout(function () {
+            const height = document.body.scrollHeight;
+            if (window.parent) {
+              window.parent.postMessage(
+                { type: "resize", height: height },
+                "*"
+              );
+            }
+          }, 300);
+        })
+        .catch(function (err) {
+          console.error("fetch 에러:", err);
+          if (loadingEl) {
+            loadingEl.innerText = "불러오기 실패: " + err.message;
+          }
+        });
     });
   </script>
 </body>
