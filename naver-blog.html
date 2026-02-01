@@ -1,219 +1,140 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>네이버 블로그 최신글</title>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    var BLOG_ID = "stack0222";   // 네이버 블로그 아이디
+    var SHOW_COUNT = 4;          // 보여줄 글 개수
 
-  <style>
-    /* ▣ 전체 페이지 배경 : 투명 (아임웹 배경 사용) */
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: transparent;
+    // Cloudflare Worker 기본 주소 (본인 것)
+    var WORKER_BASE = "https://purple-rice-7b4d.stack0222.workers.dev";
+
+    // RSS 프록시 주소
+    var rssProxyUrl = WORKER_BASE + "/rss?blogId=" + BLOG_ID;
+
+    // 디버그: 요청 URL을 콘솔과 화면에 찍어보기
+    console.log("RSS Proxy URL:", rssProxyUrl);
+    var loadingEl = document.getElementById("loading");
+    if (loadingEl) {
+      loadingEl.innerText = "RSS 불러오는 중...\n" + rssProxyUrl;
     }
 
-    .naver-blog-latest {
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 16px;
+    // XML <item> 안에서 특정 태그 텍스트 뽑기
+    function getTagText(item, tagName) {
+      var el = item.getElementsByTagName(tagName)[0];
+      return el ? (el.textContent || "") : "";
     }
 
-    .blog-title {
-      text-align: center;
-      font-size: 18px;
-      font-weight: 700;
-      margin-bottom: 16px;
+    // description 안에서 첫 번째 이미지 src 추출 후 /img 프록시로 감싸기
+    function getThumbnailUrl(item) {
+      var descHtml = getTagText(item, "description");
+      if (!descHtml) return "";
+
+      // HTML 엔티티 복원 (&amp; -> &)
+      descHtml = descHtml.replace(/&amp;/g, "&");
+
+      var m = descHtml.match(/<img[^>]+src=['"]([^'">]+)['"]/i);
+      if (!m || !m[1]) return "";
+
+      var rawUrl = m[1];
+      return WORKER_BASE + "/img?url=" + encodeURIComponent(rawUrl);
     }
 
-    #loading {
-      text-align: center;
-      color: #888;
-      padding: 20px 0;
-      font-size: 14px;
-    }
+    // RSS XML 가져오기
+    fetch(rssProxyUrl)
+      .then(function (res) {
+        // HTTP 상태 코드 체크
+        if (!res.ok) {
+          throw new Error("HTTP 상태 " + res.status);
+        }
+        return res.text();
+      })
+      .then(function (xmlText) {
+        console.log("받은 XML 길이:", xmlText.length);
 
-    .blog-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-    }
+        var parser = new DOMParser();
+        var xml = parser.parseFromString(xmlText, "application/xml");
 
-    /* ▣ 각 글 카드 */
-    .blog-list li {
-      background: #ffffff;
-      border: 1px solid #e5e5e5;
-      border-radius: 10px;
-      padding: 16px;
-      margin-bottom: 12px;
-    }
+        var items = xml.getElementsByTagName("item");
+        var list = document.querySelector(".blog-list");
+        var loadingEl = document.getElementById("loading");
 
-    /* ▣ 썸네일 */
-    .thumb {
-      width: 100%;
-      margin-bottom: 8px;
-      overflow: hidden;
-      border-radius: 8px;
-    }
+        if (loadingEl) loadingEl.style.display = "none";
 
-    .thumb img {
-      width: 100%;
-      display: block;
-      object-fit: cover;
-      max-height: 220px;
-    }
+        if (!items || items.length === 0) {
+          if (list) {
+            list.innerHTML =
+              '<li style="text-align:center;">글을 불러올 수 없습니다. (item 0개)</li>';
+          }
+          return;
+        }
 
-    .blog-list a {
-      display: block;
-      font-size: 16px;
-      font-weight: 700;
-      color: #222;
-      text-decoration: none;
-      margin-bottom: 8px;
-      line-height: 1.4;
-    }
+        console.log("RSS item 개수:", items.length);
 
-    .blog-list a:hover {
-      color: #03c75a;
-    }
+        var count = Math.min(items.length, SHOW_COUNT);
 
-    .desc {
-      font-size: 13px;
-      color: #666;
-      line-height: 1.6;
-      margin-bottom: 6px;
-      display: -webkit-box;
-      -webkit-line-clamp: 2;
-      -webkit-box-orient: vertical;
-      overflow: hidden;
-    }
+        for (var i = 0; i < count; i++) {
+          var item = items[i];
+          var li = document.createElement("li");
 
-    .date {
-      font-size: 12px;
-      color: #999;
-      text-align: right;
-    }
-  </style>
-</head>
+          var title    = getTagText(item, "title");
+          var link     = getTagText(item, "link");
+          var pubDate  = getTagText(item, "pubDate");
+          var descHtml = getTagText(item, "description");
 
-<body>
-  <div class="naver-blog-latest">
-    <h2 class="blog-title">📝 블로그 최신글</h2>
-    <div id="loading">불러오는 중...</div>
-    <ul class="blog-list"></ul>
-  </div>
+          // 본문 요약: HTML 태그 제거 후 100자
+          var cleanDesc = descHtml
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">")
+            .replace(/&amp;/g, "&")
+            .replace(/<[^>]*>/g, "")
+            .slice(0, 100) + "...";
 
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      var BLOG_ID = "stack0222";   // 네이버 블로그 아이디
-      var SHOW_COUNT = 4;          // 보여줄 글 개수
+          var date = pubDate ? pubDate.split(" ")[0] : "";
 
-      // ★ 본인 Cloudflare Worker 기본 주소
-      var WORKER_BASE = "https://purple-rice-7b4d.stack0222.workers.dev";
-
-      // RSS 프록시 주소
-      var rssProxyUrl = WORKER_BASE + "/rss?blogId=" + BLOG_ID;
-
-      // XML <item> 안에서 특정 태그 텍스트 뽑기
-      function getTagText(item, tagName) {
-        var el = item.getElementsByTagName(tagName)[0];
-        return el ? (el.textContent || "") : "";
-      }
-
-      // description 안에서 첫 번째 이미지 src 추출 후 /img 프록시로 감싸기
-      function getThumbnailUrl(item) {
-        var descHtml = getTagText(item, "description");
-        if (!descHtml) return "";
-
-        // HTML 엔티티 복원 (&amp; -> &)
-        descHtml = descHtml.replace(/&amp;/g, "&");
-
-        var m = descHtml.match(/<img[^>]+src=['"]([^'">]+)['"]/i);
-        if (!m || !m[1]) return "";
-
-        var rawUrl = m[1];
-        return WORKER_BASE + "/img?url=" + encodeURIComponent(rawUrl);
-      }
-
-      // RSS XML 가져오기
-      fetch(rssProxyUrl)
-        .then(function (res) { return res.text(); })
-        .then(function (xmlText) {
-          var parser = new DOMParser();
-          var xml = parser.parseFromString(xmlText, "application/xml");
-
-          var items = xml.getElementsByTagName("item");
-          var list = document.querySelector(".blog-list");
-          var loadingEl = document.getElementById("loading");
-
-          if (loadingEl) loadingEl.style.display = "none";
-
-          if (!items || items.length === 0) {
-            if (list) {
-              list.innerHTML =
-                '<li style="text-align:center;">글을 불러올 수 없습니다.</li>';
-            }
-            return;
+          var thumbUrl = getThumbnailUrl(item);
+          var thumbHTML = "";
+          if (thumbUrl) {
+            thumbHTML =
+              '<div class="thumb">' +
+                '<img src="' + thumbUrl + '" alt="' + (title || "") + ' 썸네일">' +
+              '</div>';
           }
 
-          var count = Math.min(items.length, SHOW_COUNT);
+          li.innerHTML =
+            thumbHTML +
+            '<a href="' + link + '" target="_blank" rel="noopener">' +
+              title +
+            '</a>' +
+            '<div class="desc">' + cleanDesc + '</div>' +
+            '<div class="date">' + date + '</div>';
 
-          for (var i = 0; i < count; i++) {
-            var item = items[i];
-            var li = document.createElement("li");
+          list.appendChild(li);
+        }
 
-            var title   = getTagText(item, "title");
-            var link    = getTagText(item, "link");
-            var pubDate = getTagText(item, "pubDate");
-            var descHtml = getTagText(item, "description");
-
-            // 본문 요약: HTML 태그 제거 후 100자
-            var cleanDesc = descHtml
-              .replace(/&lt;/g, "<")
-              .replace(/&gt;/g, ">")
-              .replace(/&amp;/g, "&")
-              .replace(/<[^>]*>/g, "")
-              .slice(0, 100) + "...";
-
-            var date = pubDate ? pubDate.split(" ")[0] : "";
-
-            var thumbUrl = getThumbnailUrl(item);
-            var thumbHTML = "";
-            if (thumbUrl) {
-              thumbHTML =
-                '<div class="thumb">' +
-                  '<img src="' + thumbUrl + '" alt="' + (title || "") + ' 썸네일">' +
-                '</div>';
-            }
-
-            li.innerHTML =
-              thumbHTML +
-              '<a href="' + link + '" target="_blank" rel="noopener">' +
-                title +
-              '</a>' +
-              '<div class="desc">' + cleanDesc + '</div>' +
-              '<div class="date">' + date + '</div>';
-
-            list.appendChild(li);
+        // 아임웹 iframe 높이 자동 조절
+        setTimeout(function () {
+          var height = document.body.scrollHeight;
+          if (window.parent) {
+            window.parent.postMessage(
+              { type: "resize", height: height },
+              "*"
+            );
           }
+        }, 300);
+      })
+      .catch(function (err) {
+        var loadingEl = document.getElementById("loading");
+        if (loadingEl) {
+          loadingEl.innerText = "불러오기 실패: " + err;
+        }
 
-          // 아임웹 iframe 높이 자동 조절
-          setTimeout(function () {
-            var height = document.body.scrollHeight;
-            if (window.parent) {
-              window.parent.postMessage(
-                { type: "resize", height: height },
-                "*"
-              );
-            }
-          }, 300);
-        })
-        .catch(function (err) {
-          var loadingEl = document.getElementById("loading");
-          if (loadingEl) loadingEl.innerText = "불러오기 실패";
-          console.error(err);
-        });
-    });
-  </script>
-</body>
-</html>
+        // 화면 아래쪽에 디버그 메시지도 같이 표시
+        var debug = document.createElement("div");
+        debug.style.color = "red";
+        debug.style.fontSize = "12px";
+        debug.style.marginTop = "10px";
+        debug.textContent = "DEBUG: " + err;
+        document.body.appendChild(debug);
+
+        console.error("fetch 에러:", err);
+      });
+  });
+</script>
